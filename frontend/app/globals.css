@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+/*
+ * Glimpse Design System — Spotify-inspired dark theme
+ * Reference: DESIGN.md
+ *
+ * Font: Bricolage Grotesque (loaded via next/font/google)
+ * Colors, shadows, radii all follow the DESIGN.md spec.
+ */
+
+@theme {
+  /* ── Brand Colors ── */
+  --color-accent: #1ed760;
+  --color-accent-border: #1db954;
+
+  /* ── Backgrounds ── */
+  --color-bg-base: #121212;
+  --color-bg-surface: #181818;
+  --color-bg-elevated: #1f1f1f;
+  --color-bg-card: #252525;
+  --color-bg-card-alt: #272727;
+  --color-bg-light: #eeeeee;
+
+  /* ── Text ── */
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #b3b3b3;
+  --color-text-bright: #cbcbcb;
+  --color-text-max: #fdfdfd;
+
+  /* ── Semantic ── */
+  --color-negative: #f3727f;
+  --color-warning: #ffa42b;
+  --color-info: #539df5;
+
+  /* ── Borders ── */
+  --color-border: #4d4d4d;
+  --color-border-light: #7c7c7c;
+  --color-separator: #b3b3b3;
+
+  /* ── Shadows ── */
+  --shadow-heavy: 0px 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-medium: 0px 8px 8px rgba(0, 0, 0, 0.3);
+  --shadow-inset: rgb(18, 18, 18) 0px 1px 0px,
+    rgb(124, 124, 124) 0px 0px 0px 1px inset;
+
+  /* ── Border Radius ── */
+  --radius-subtle: 4px;
+  --radius-standard: 6px;
+  --radius-comfortable: 8px;
+  --radius-medium: 12px;
+  --radius-large: 100px;
+  --radius-pill: 500px;
+  --radius-full-pill: 9999px;
+}
+
+/* ── Base Styles ── */
+body {
+  background-color: var(--color-bg-base);
+  color: var(--color-text-primary);
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-base);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-full-pill);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-light);
+}
+
+/* ── Selection ── */
+::selection {
+  background: rgba(30, 215, 96, 0.3);
+  color: var(--color-text-primary);
+}

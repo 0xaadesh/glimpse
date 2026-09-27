@@ -1,0 +1,43 @@
+[project]
+name = "glimpse"
+version = "0.1.0"
+description = "Semantic image search powered by Groq, Gemini Embeddings and Qdrant"
+readme = "README.md"
+requires-python = ">=3.11"
+
+dependencies = [
+    # Vision
+    "groq>=1.5.0",
+
+    # Gemini Embeddings
+    "google-genai>=1.30.0",
+
+    # Vector DB
+    "qdrant-client>=1.15.1",
+
+    # Models
+    "pydantic>=2.11.7",
+
+    # CLI
+    "typer>=0.16.0",
+
+    # Beautiful terminal UI
+    "rich>=14.1.0",
+
+    # Env
+    "python-dotenv>=1.2.2",
+
+    # Progress bars
+    "tqdm>=4.67.1",
+
+    # Better UUIDs
+    "uuid7>=0.1.0",
+
+    # API Server
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "python-multipart>=0.0.20",
+]
+
+[tool.uv]
+package = false
