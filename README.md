@@ -24,8 +24,8 @@ Glimpse ships as three pieces over one pipeline:
 Ingesting an image takes three steps. Each one saves its output to disk, so you can inspect or re-run any step on its own.
 
 1. **Upload**: the image is saved to `backend/data/images/`.
-2. **Generate**: the vision model (`VISION_MODEL`, served by Groq) looks at the image together with an optional user description. It returns JSON metadata validated against `RetrievalMetadata` (`backend/src/models.py`). The metadata goes to `data/metadata/<name>.json`. It is then rendered into a Markdown semantic document with the highest-signal fields first, saved to `data/semantic/<name>.md`.
-3. **Ingest**: the semantic document is embedded with the embedding model (`EMBEDDING_MODEL`, served by Gemini) and upserted into Qdrant. The point ID is derived from the image contents, so re-ingesting the same image updates its point instead of creating a duplicate.
+2. **Generate**: the vision model (`VISION_MODEL`, served by OpenRouter) looks at the image together with an optional user description. It returns JSON metadata validated against `RetrievalMetadata` (`backend/src/models.py`). The metadata goes to `data/metadata/<name>.json`. It is then rendered into a Markdown semantic document with the highest-signal fields first, saved to `data/semantic/<name>.md`.
+3. **Ingest**: the semantic document is embedded with the embedding model (`EMBEDDING_MODEL`, served by OpenRouter) and upserted into Qdrant. The point ID is derived from the image contents, so re-ingesting the same image updates its point instead of creating a duplicate.
 
 At search time, the query is embedded with the same model and matched against stored vectors by cosine similarity.
 
@@ -48,8 +48,8 @@ sequenceDiagram
     actor User
     participant Frontend as Next.js Frontend
     participant Backend as FastAPI Backend
-    participant Vision as Vision LLM (Groq)
-    participant Embed as Embedding Model (Gemini)
+    participant Vision as Vision LLM (OpenRouter)
+    participant Embed as Embedding Model (OpenRouter)
     participant Qdrant as Qdrant Vector DB
 
     User->>Frontend: Upload image + optional description
@@ -81,13 +81,13 @@ sequenceDiagram
 │   ├── src/
 │   │   ├── api.py           # FastAPI routes
 │   │   ├── config.py        # Settings loaded from .env, data folders
-│   │   ├── embeddings.py    # Embedding provider wrapper (Gemini)
+│   │   ├── embeddings.py    # Embedding provider wrapper (OpenRouter)
 │   │   ├── main.py          # Typer CLI
 │   │   ├── models.py        # Pydantic models, LLM output coercion
 │   │   ├── qdrant_db.py     # Vector store (ImageVectorStore)
 │   │   ├── semantic.py      # Metadata to semantic document
 │   │   ├── server.py        # Uvicorn entrypoint
-│   │   └── vision.py        # Vision LLM wrapper (Groq)
+│   │   └── vision.py        # Vision LLM wrapper (OpenRouter)
 │   └── pyproject.toml       # Python dependencies (uv)
 ├── frontend/
 │   ├── app/
@@ -97,6 +97,7 @@ sequenceDiagram
 │   │   └── lib/api.ts       # Typed backend client
 │   └── next.config.ts       # Loads root .env, proxies /api and /images to the backend
 ├── .env.example             # Template for the shared root .env
+├── setup.py                 # Creates .env from the template (--it prompts)
 ├── docker-compose.yml       # Local Qdrant (data in backend/qdrant_storage)
 └── README.md
 ```
@@ -126,15 +127,16 @@ Interactive docs are at `http://localhost:8000/docs` while the backend is runnin
 - Python 3.11+ and [uv](https://docs.astral.sh/uv/)
 - [Bun](https://bun.sh/)
 - Docker
-- Groq and Gemini API keys
+- An OpenRouter API key
 
 ### 1. Configure
 
 ```bash
-cp .env.example .env
+uv run setup.py          # writes .env from .env.example; fill in the API key after
+uv run setup.py --it     # or: prompts for each value, including the API key
 ```
 
-Fill in the API keys. See [Environment Variables](#environment-variables).
+Re-running keeps values already in `.env`. You can also copy `.env.example` to `.env` by hand. See [Environment Variables](#environment-variables).
 
 ### 2. Start Qdrant
 
@@ -156,7 +158,7 @@ cd ../frontend && bun install
 ```bash
 # Terminal 1: backend on http://localhost:8000
 cd backend
-uv run src/server.py
+uv run start              # same as: uv run src/server.py
 
 # Terminal 2: frontend on http://localhost:3000
 cd frontend
@@ -182,11 +184,11 @@ All settings live in one `.env` at the project root, shared by both apps: the ba
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GROQ_API_KEY` | Yes | Groq API key for the vision model |
-| `GEMINI_API_KEY` | Yes | Gemini API key for embeddings |
-| `VISION_MODEL` | Yes | Groq vision model ID, e.g. `meta-llama/llama-4-scout-17b-16e-instruct` |
-| `EMBEDDING_MODEL` | Yes | Gemini embedding model ID, e.g. `gemini-embedding-001` |
-| `EMBEDDING_DIMENSIONS` | Yes | Vector size, e.g. `1536`. Must match the Qdrant collection |
+| `OPENROUTER_API_KEY` | Yes | OpenRouter API key, used for both the vision and embedding models |
+| `VISION_MODEL` | Yes | OpenRouter model ID that accepts image input, e.g. `z-ai/glm-5.3-flash` |
+| `EMBEDDING_MODEL` | Yes | OpenRouter embedding model ID, e.g. `openai/text-embedding-3-small` |
+| `EMBEDDING_DIMENSIONS` | Yes | Vector size, e.g. `1536` for `text-embedding-3-small`. Must match the Qdrant collection |
+| `OPENROUTER_BASE_URL` | No | Default `https://openrouter.ai/api/v1` |
 | `QDRANT_URL` | No | Default `http://localhost:6333` |
 | `QDRANT_COLLECTION` | No | Default `images` |
 | `BACKEND_URL` | No | Where the frontend proxies `/api` and `/images`. Default `http://localhost:8000` |
@@ -199,6 +201,6 @@ A Qdrant collection's vector size is fixed when the collection is created. If yo
 
 - **Backend**: Python, FastAPI, Uvicorn, Pydantic, Typer, Rich
 - **Frontend**: Next.js (App Router), React, TypeScript, Tailwind CSS v4
-- **Models**: vision LLM via Groq (default Llama 4 Scout), embeddings via Gemini (default `gemini-embedding-001`)
+- **Models**: via OpenRouter: vision LLM `z-ai/glm-5.3-flash`, embeddings `openai/text-embedding-3-small` (1536 dims)
 - **Vector DB**: Qdrant
 - **Tooling**: uv, Bun, Docker Compose
