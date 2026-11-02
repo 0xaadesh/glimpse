@@ -54,9 +54,18 @@ export async function fetchImages(): Promise<IndexedImage[]> {
 
 // ── Single image ──
 
+/** Thrown when the backend has no image with the requested id. */
+export class NotFoundError extends Error {
+  constructor(message = "Image not found") {
+    super(message);
+    this.name = "NotFoundError";
+  }
+}
+
 export async function fetchImage(id: string): Promise<IndexedImage> {
   const res = await fetch(`/api/images/${id}`);
-  if (!res.ok) throw new Error("Image not found");
+  if (res.status === 404) throw new NotFoundError();
+  if (!res.ok) throw new Error("Failed to load image");
   return res.json();
 }
 

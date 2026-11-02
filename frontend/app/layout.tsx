@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "./components/Navbar";
+import { UploadProvider } from "./components/UploadProvider";
 
 const bricolage = Bricolage_Grotesque({
   variable: "--font-bricolage",
@@ -13,7 +14,7 @@ const bricolage = Bricolage_Grotesque({
 export const metadata: Metadata = {
   title: "Glimpse",
   description:
-    "Semantic image search powered by Groq Vision, Gemini Embeddings, and Qdrant",
+    "Semantic image search powered by OpenRouter vision and embedding models, and Qdrant",
 };
 
 export default function RootLayout({
@@ -27,10 +28,17 @@ export default function RootLayout({
         className="min-h-full flex flex-col"
         style={{ fontFamily: "var(--font-bricolage), sans-serif" }}
       >
-        <Suspense>
-          <Navbar />
-        </Suspense>
-        <main className="flex-1">{children}</main>
+        <a href="#main" className="skip-link">
+          Skip to content
+        </a>
+        <UploadProvider>
+          <Suspense>
+            <Navbar />
+          </Suspense>
+          <main id="main" tabIndex={-1} className="flex-1 outline-none">
+            {children}
+          </main>
+        </UploadProvider>
       </body>
     </html>
   );

@@ -54,6 +54,18 @@
 }
 
 /* ── Base Styles ── */
+html {
+  /* Keyboard focus and #anchors never land under the sticky navbar
+     (two rows on phones, one from sm up). */
+  scroll-padding-top: 8rem;
+}
+
+@media (min-width: 40rem) {
+  html {
+    scroll-padding-top: 5rem;
+  }
+}
+
 body {
   background-color: var(--color-bg-base);
   color: var(--color-text-primary);
@@ -81,4 +93,482 @@ body {
 ::selection {
   background: rgba(30, 215, 96, 0.3);
   color: var(--color-text-primary);
+}
+
+/*
+ * ── Motion & layout tokens ──
+ * Spring: critically damped (damping 1.0, response 0.35s) sampled into a
+ * linear() easing, used when a pressed control springs back. No bounce.
+ */
+:root {
+  --ease-spring: linear(
+    0, 0.075, 0.227, 0.39, 0.536, 0.656, 0.75, 0.821, 0.873, 0.911, 0.938,
+    0.957, 0.971, 0.98, 0.986, 0.991, 0.994, 0.996, 0.997, 0.998, 1
+  );
+  --spring-duration: 500ms;
+  --ease-out-quint: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Height of the single-row navbar (py-3 + 44px controls). */
+  --nav-h: 4.25rem;
+
+  /* Dark UI: depth shadows vanish, so surfaces get a faint white ring. */
+  --shadow-border: 0 0 0 1px oklch(1 0 0 / 0.08);
+  --shadow-border-hover: 0 0 0 1px oklch(1 0 0 / 0.13);
+  --image-outline: oklch(1 0 0 / 0.1);
+
+  /* Card inset; the card's radius is derived from it (concentric). */
+  --card-pad: 0.5rem;
+}
+
+@media (min-width: 40rem) {
+  :root {
+    --card-pad: 0.75rem;
+  }
+}
+
+/* Kill the double-tap zoom delay on every interactive element. */
+a,
+button,
+summary,
+input,
+label {
+  touch-action: manipulation;
+}
+
+/* ── Typography: size-specific tracking and leading ── */
+h1 {
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-optical-sizing: auto;
+}
+
+h2,
+h3 {
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+@layer components {
+  /* ── Layout ── */
+
+  /* One content width for the navbar and every page, so edges line up. */
+  .page-container {
+    width: 100%;
+    max-width: 80rem;
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+
+  @media (min-width: 40rem) {
+    .page-container {
+      padding-inline: 1.5rem;
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .page-container {
+      padding-inline: 2rem;
+    }
+  }
+
+  /* Image page: stacked on phones, image | details from lg up. */
+  .detail-grid {
+    display: grid;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  .detail-hero {
+    width: 100%;
+    height: min(70dvh, 36rem);
+  }
+
+  @media (min-width: 64rem) {
+    .detail-grid {
+      grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+      gap: 2.5rem;
+    }
+
+    /* The image stays in view while the details scroll past it. */
+    .detail-media {
+      position: sticky;
+      top: calc(var(--nav-h) + 1.5rem);
+    }
+
+    .detail-hero {
+      height: max(24rem, calc(100dvh - var(--nav-h) - 7rem));
+    }
+  }
+
+  /* ── Surfaces ── */
+
+  /* Content surface with a structural ring; the transparent border keeps an
+     edge in forced-colors mode, which drops box-shadow. */
+  .panel {
+    padding: 1.5rem;
+    background-color: var(--color-bg-surface);
+    border: 1px solid transparent;
+    border-radius: var(--radius-medium);
+    box-shadow: var(--shadow-border);
+  }
+
+  /* Content images: 1px pure-white outline just inside the edge. */
+  .image-outline {
+    outline: 1px solid var(--image-outline);
+    outline-offset: -1px;
+  }
+
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.5rem;
+    max-width: 100%;
+    padding: 0.125rem 0.625rem;
+    font-size: 0.75rem;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+    background-color: var(--color-bg-elevated);
+    color: var(--color-text-bright);
+    border-radius: var(--radius-full-pill);
+  }
+
+  /* ── Pressable controls ── */
+
+  .pressable {
+    transition-property: transform, background-color, color, filter;
+    transition-duration: var(--spring-duration), 150ms, 150ms, 150ms;
+    transition-timing-function: var(--ease-spring), ease-out, ease-out, ease-out;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  @media (hover: hover) {
+    .pressable-elevated:hover:not(:disabled),
+    .tag-link:hover {
+      background-color: #2a2a2a !important;
+    }
+
+    .pressable-muted:hover:not(:disabled),
+    .tag-link:hover {
+      color: var(--color-text-primary) !important;
+    }
+
+    .pressable-accent:hover:not(:disabled) {
+      filter: brightness(1.1);
+    }
+  }
+
+  /* Visible focus for keyboard users; never on mouse press. */
+  .pressable:focus-visible,
+  .field:focus-visible,
+  .card:focus-visible,
+  .disclosure > summary:focus-visible {
+    outline: 2px solid var(--color-accent-border);
+    outline-offset: 2px;
+  }
+
+  .field {
+    transition-property: box-shadow;
+    transition-duration: 150ms;
+    transition-timing-function: ease-out;
+  }
+
+  /* ── Navbar: translucent material, scroll-edge fade instead of a divider ── */
+
+  .nav-material {
+    background-color: color-mix(in srgb, var(--color-bg-base) 72%, transparent);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+  }
+
+  .nav-material::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    height: 12px;
+    pointer-events: none;
+    background: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-bg-base) 60%, transparent),
+      transparent
+    );
+  }
+
+  /* ── Image card ── */
+
+  .card,
+  .card-shell {
+    padding: var(--card-pad);
+    background-color: var(--color-bg-surface);
+    border: 1px solid transparent;
+    /* Concentric: inner image radius + inset + border. */
+    border-radius: calc(var(--radius-standard) + var(--card-pad) + 1px);
+    box-shadow: var(--shadow-border);
+  }
+
+  .card {
+    transition-property: transform, background-color, box-shadow;
+    transition-duration: var(--spring-duration), 150ms, 150ms;
+    transition-timing-function: var(--ease-spring), ease-out, ease-out;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  @media (hover: hover) {
+    .card:hover {
+      background-color: var(--color-bg-card);
+      box-shadow: var(--shadow-border-hover);
+    }
+  }
+
+  /* ── Dialog ── */
+
+  .dialog-panel {
+    overscroll-behavior: contain;
+    transition-property: opacity;
+    transition-duration: 300ms;
+    transition-timing-function: ease-out;
+  }
+
+  .dialog-panel::backdrop {
+    background-color: rgba(0, 0, 0, 0.7);
+    transition-property: opacity;
+    transition-duration: 300ms;
+    transition-timing-function: ease-out;
+  }
+
+  .dialog-panel[data-state="closed"],
+  .dialog-panel[data-state="closed"]::backdrop {
+    opacity: 0;
+    /* Exits are shorter than enters. */
+    transition-duration: 150ms;
+  }
+
+  /* Primary action pinned to the dialog's bottom edge while content scrolls. */
+  .dialog-actions {
+    position: sticky;
+    bottom: 0;
+    margin: 1.5rem -1.5rem -1.5rem;
+    padding: 1rem 1.5rem 1.5rem;
+    background-color: var(--color-bg-surface);
+  }
+
+  .dialog-actions::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    height: 1.5rem;
+    pointer-events: none;
+    background: linear-gradient(to top, var(--color-bg-surface), transparent);
+  }
+
+  .dropzone {
+    transition-property: border-color, transform;
+    transition-duration: 150ms, var(--spring-duration);
+    transition-timing-function: ease-out, var(--ease-spring);
+  }
+
+  .dropzone[data-dragging="true"] {
+    border-color: var(--color-accent) !important;
+  }
+
+  /* ── Disclosure (semantic document) ── */
+
+  .disclosure > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .disclosure-chevron {
+    display: inline-flex;
+  }
+
+  .disclosure[open] .disclosure-chevron {
+    transform: rotate(90deg);
+  }
+
+  .step-dot {
+    transition-property: background-color;
+    transition-duration: 150ms;
+    transition-timing-function: ease-out;
+  }
+
+  /* ── Skip link: hidden until focused ── */
+
+  .skip-link {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 200;
+    padding: 0.75rem 1.25rem;
+    font-weight: 700;
+    font-size: 0.875rem;
+    background-color: var(--color-accent);
+    color: #000;
+    border-radius: var(--radius-full-pill);
+    opacity: 0;
+    pointer-events: none;
+    transition-property: opacity, transform;
+    transition-duration: 150ms;
+    transition-timing-function: ease-out;
+  }
+
+  .skip-link:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
+    outline: 2px solid var(--color-text-primary);
+    outline-offset: 2px;
+  }
+
+  /* Grow a small control's hit area to 44x44 without changing its look. */
+  .hit-44::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+
+  /* ── Loading placeholder: low-contrast block on existing tokens ── */
+
+  .skeleton {
+    background-color: var(--color-bg-elevated);
+  }
+
+  /* ── Entrances (run once): opacity only by default ── */
+
+  .step-enter,
+  .enter-item {
+    animation: fade-in 300ms ease-out both;
+  }
+
+  /* Detail page: image, header, metadata, document, 100ms apart. */
+  .enter-item {
+    animation-delay: calc(var(--enter-index, 0) * 100ms);
+  }
+
+  /* Grid: 40ms per card, capped (index is clamped to 12). Fill "backwards"
+     only, so the card's own :active scale still applies afterwards. */
+  .stagger-in {
+    animation: fade-in 300ms ease-out backwards;
+    animation-delay: calc(var(--stagger-index, 0) * 40ms);
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+      filter: blur(4px);
+    }
+  }
+
+  @keyframes skeleton-pulse {
+    50% {
+      background-color: var(--color-bg-card);
+    }
+  }
+}
+
+/*
+ * ── Movement, scale and blur: only when the user hasn't asked to reduce
+ * motion. Everything above already works as an opacity cross-fade.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  /* Press: 0.96 over 150ms ease-out; release springs back. Never disabled. */
+  .pressable:active:not(:disabled),
+  .card:active {
+    transform: scale(0.96);
+    transition-duration: 150ms;
+    transition-timing-function: ease-out;
+  }
+
+  .card-image {
+    transition-property: transform;
+    transition-duration: var(--spring-duration);
+    transition-timing-function: var(--ease-spring);
+  }
+
+  @media (hover: hover) {
+    .card:hover .card-image {
+      transform: scale(1.05);
+    }
+  }
+
+  /* Dialog materializes from its trigger and returns to it. */
+  .dialog-panel {
+    transition-property: transform, opacity, filter;
+    transition-duration: var(--spring-duration), 300ms, 300ms;
+    transition-timing-function: var(--ease-spring), ease-out, ease-out;
+  }
+
+  .dialog-panel[data-state="closed"] {
+    transform: scale(0.6);
+    filter: blur(4px);
+    transition-duration: 200ms, 150ms, 150ms;
+    transition-timing-function: ease-out;
+  }
+
+  .dropzone[data-dragging="true"] {
+    transform: scale(1.01);
+  }
+
+  .disclosure-chevron {
+    transition-property: transform;
+    transition-duration: 200ms;
+    transition-timing-function: var(--ease-out-quint);
+  }
+
+  .skip-link {
+    transform: translateY(-0.5rem);
+  }
+
+  .skip-link:focus-visible {
+    transform: none;
+  }
+
+  .step-enter,
+  .enter-item,
+  .stagger-in {
+    animation-name: fade-in-up;
+  }
+
+  .skeleton {
+    animation: skeleton-pulse 1.6s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin {
+    animation-duration: 2.5s;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .nav-material {
+    background-color: var(--color-bg-base);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .nav-material {
+    background-color: var(--color-bg-base);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-bottom: 1px solid var(--color-border-light);
+  }
+
+  .nav-material::after {
+    display: none;
+  }
 }

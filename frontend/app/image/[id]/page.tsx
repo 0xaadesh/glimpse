@@ -1,64 +1,149 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
-import { fetchImage, type IndexedImage } from "../../lib/api";
+import { fetchImage, NotFoundError, type IndexedImage } from "../../lib/api";
+import { AlertIcon, BackIcon, ChevronIcon, ExternalIcon } from "../../components/icons";
+import { TagGroups, type TagGroup } from "../../components/TagGroups";
 
-export default function ImageDetailPage() {
-  const params = useParams();
-  const router = useRouter();
-  const imageId = params.id as string;
+const SECONDARY_BUTTON_STYLE: React.CSSProperties = {
+  backgroundColor: "var(--color-bg-elevated)",
+  color: "var(--color-text-primary)",
+  borderRadius: "var(--radius-full-pill)",
+  letterSpacing: "0.1em",
+};
 
+const SECTION_LABEL_STYLE: React.CSSProperties = {
+  color: "var(--color-text-secondary)",
+  letterSpacing: "0.12em",
+};
+
+/** Staged entrance for the detail column: header, metadata, document. */
+function enterStyle(index: number): React.CSSProperties {
+  return { "--enter-index": index } as React.CSSProperties;
+}
+
+/* ── Data ── */
+
+type LoadError = { notFound: boolean; message: string };
+
+function useImage(imageId: string) {
   const [image, setImage] = useState<IndexedImage | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<LoadError | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
     fetchImage(imageId)
-      .then(setImage)
-      .catch(() => setError("Image not found"))
-      .finally(() => setLoading(false));
-  }, [imageId]);
+      .then((result) => {
+        if (!cancelled) setImage(result);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError({
+          notFound: err instanceof NotFoundError,
+          message: err instanceof Error ? err.message : "Failed to load image",
+        });
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [imageId, retryCount]);
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-20">
-        <div
-          className="w-8 h-8 border-3 border-t-transparent rounded-full animate-spin"
-          style={{
-            borderColor: "var(--color-accent)",
-            borderTopColor: "transparent",
-          }}
-        />
+  return { image, loading, error, retry: () => setRetryCount((n) => n + 1) };
+}
+
+/* ── States ── */
+
+function DetailSkeleton() {
+  return (
+    <div role="status" aria-label="Loading image" className="page-container py-6">
+      <title>Loading… · Glimpse</title>
+      <div className="skeleton h-11 w-28 mb-6" style={{ borderRadius: "var(--radius-full-pill)" }} />
+      <div className="detail-grid">
+        <div className="skeleton detail-hero" style={{ borderRadius: "var(--radius-medium)" }} />
+        <div className="flex flex-col gap-3">
+          <div className="skeleton h-9 w-3/4" style={{ borderRadius: "var(--radius-subtle)" }} />
+          <div className="skeleton h-5 w-full" style={{ borderRadius: "var(--radius-subtle)" }} />
+          <div className="skeleton h-5 w-5/6 mb-4" style={{ borderRadius: "var(--radius-subtle)" }} />
+          <div className="skeleton h-64 w-full" style={{ borderRadius: "var(--radius-medium)" }} />
+        </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
-  if (error || !image) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4">
-        <p style={{ color: "var(--color-negative)" }}>
-          {error ?? "Image not found"}
+function DetailError({ error, onRetry, onHome }: { error: LoadError | null; onRetry: () => void; onHome: () => void }) {
+  const notFound = error?.notFound ?? true;
+  return (
+    <div role="alert" className="page-container flex flex-col items-center justify-center py-24 gap-4 text-center">
+      <title>{`${notFound ? "Not found" : "Error"} · Glimpse`}</title>
+      <span style={{ color: "var(--color-negative)" }}>
+        <AlertIcon className="w-12 h-12" strokeWidth={1.5} />
+      </span>
+      <div>
+        <p className="text-base font-semibold">
+          {notFound ? "This image doesn’t exist" : "Couldn’t load this image"}
         </p>
+        <p className="text-sm mt-1" style={{ color: "var(--color-text-secondary)" }}>
+          {notFound
+            ? "It may have been removed, or the link is wrong."
+            : `${error?.message}. Check that the backend is running, then try again.`}
+        </p>
+      </div>
+      <div className="flex flex-wrap justify-center gap-3">
+        {!notFound && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="pressable pressable-elevated min-h-11 px-5 text-sm font-bold uppercase cursor-pointer"
+            style={SECONDARY_BUTTON_STYLE}
+          >
+            Try Again
+          </button>
+        )}
         <button
-          onClick={() => router.push("/")}
-          className="px-5 py-2 text-sm font-bold uppercase cursor-pointer"
-          style={{
-            backgroundColor: "var(--color-bg-elevated)",
-            color: "var(--color-text-primary)",
-            borderRadius: "var(--radius-full-pill)",
-            letterSpacing: "1.4px",
-          }}
+          type="button"
+          onClick={onHome}
+          className="pressable pressable-elevated min-h-11 px-5 text-sm font-bold uppercase cursor-pointer"
+          style={SECONDARY_BUTTON_STYLE}
         >
           Back to Gallery
         </button>
       </div>
-    );
+    </div>
+  );
+}
+
+/* ── Page ── */
+
+export default function ImageDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const { image, loading, error, retry } = useImage(params.id as string);
+
+  // Go back to where the user came from (keeps their search and scroll);
+  // fall back to the gallery when the page was opened directly.
+  function goBack() {
+    if (window.history.length > 1) router.back();
+    else router.push("/");
+  }
+
+  if (loading) return <DetailSkeleton />;
+  if (error || !image) {
+    return <DetailError error={error} onRetry={retry} onHome={() => router.push("/")} />;
   }
 
   const imageUrl = `/images/${image.filename}`;
 
-  const tagSections: [string, string[]][] = [
+  const tagGroups: TagGroup[] = [
     ["People", image.people],
     ["Objects", image.objects],
     ["Actions", image.actions],
@@ -72,140 +157,111 @@ export default function ImageDetailPage() {
   ];
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-8">
-      {/* ── Back ── */}
-      <button
-        onClick={() => router.push("/")}
-        className="inline-flex items-center gap-2 mb-6 px-4 py-2 text-sm font-bold uppercase cursor-pointer transition-colors"
-        style={{
-          backgroundColor: "var(--color-bg-elevated)",
-          color: "var(--color-text-secondary)",
-          borderRadius: "var(--radius-full-pill)",
-          letterSpacing: "1px",
-        }}
-        onMouseEnter={(e) =>
-          ((e.currentTarget as HTMLElement).style.color = "#fff")
-        }
-        onMouseLeave={(e) =>
-          ((e.currentTarget as HTMLElement).style.color =
-            "var(--color-text-secondary)")
-        }
-      >
-        <svg
-          className="w-4 h-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M15 19l-7-7 7-7"
-          />
-        </svg>
-        Back
-      </button>
+    <div className="page-container py-6">
+      <title>{`${image.title} · Glimpse`}</title>
 
-      {/* ── Hero Image ── */}
-      <div
-        className="w-full overflow-hidden mb-8"
-        style={{ borderRadius: "var(--radius-comfortable)" }}
-      >
-        <img
-          src={imageUrl}
-          alt={image.title}
-          className="w-full max-h-[500px] object-contain"
-          style={{ backgroundColor: "var(--color-bg-surface)" }}
-        />
+      {/* ── Toolbar: way out on the left, actions on the right ── */}
+      <div className="flex items-center justify-between gap-3 mb-6">
+        <button
+          type="button"
+          onClick={goBack}
+          className="pressable pressable-elevated pressable-muted inline-flex items-center gap-2 min-h-11 ps-3.5 pe-4 text-sm font-bold uppercase cursor-pointer"
+          style={{ ...SECONDARY_BUTTON_STYLE, color: "var(--color-text-secondary)", letterSpacing: "0.08em" }}
+        >
+          <BackIcon className="w-4 h-4" strokeWidth={2.5} />
+          Back
+        </button>
+        <a
+          href={imageUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="pressable pressable-elevated pressable-muted inline-flex items-center gap-2 min-h-11 ps-4 pe-3.5 text-sm font-bold uppercase"
+          style={{ ...SECONDARY_BUTTON_STYLE, color: "var(--color-text-secondary)", letterSpacing: "0.08em" }}
+        >
+          <span>
+            Full size<span className="sr-only"> (opens in a new tab)</span>
+          </span>
+          <ExternalIcon className="w-4 h-4" strokeWidth={2.5} />
+        </a>
       </div>
 
-      {/* ── Title & Summary ── */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-3">{image.title}</h1>
-        <p
-          className="text-base leading-relaxed"
-          style={{ color: "var(--color-text-secondary)" }}
-        >
-          {image.summary}
-        </p>
-      </div>
+      <div className="detail-grid">
+        {/* ── Image: sticks beside the details on wide screens ── */}
+        <figure className="detail-media enter-item" style={enterStyle(0)}>
+          <div
+            className="detail-hero relative overflow-hidden image-outline"
+            style={{
+              backgroundColor: "var(--color-bg-surface)",
+              borderRadius: "var(--radius-medium)",
+            }}
+          >
+            <Image
+              src={imageUrl}
+              alt={image.title}
+              fill
+              priority
+              sizes="(min-width: 1024px) 58vw, 100vw"
+              className="object-contain"
+            />
+          </div>
+        </figure>
 
-      {/* ── Metadata Tags ── */}
-      <div
-        className="p-6 mb-8"
-        style={{
-          backgroundColor: "var(--color-bg-surface)",
-          borderRadius: "var(--radius-comfortable)",
-        }}
-      >
-        <h2
-          className="text-xs font-bold uppercase mb-5"
-          style={{
-            color: "var(--color-text-secondary)",
-            letterSpacing: "1.4px",
-          }}
-        >
-          AI-Generated Metadata
-        </h2>
+        {/* ── Details ── */}
+        <div className="flex flex-col gap-6 min-w-0">
+          <header className="enter-item" style={enterStyle(1)}>
+            <h1 className="text-3xl font-bold text-balance">{image.title}</h1>
+            <p
+              className="mt-3 text-base leading-relaxed text-pretty"
+              style={{ color: "var(--color-text-secondary)" }}
+            >
+              {image.summary}
+            </p>
+          </header>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
-          {tagSections
-            .filter(([, items]) => items.length > 0)
-            .map(([label, items]) => (
-              <div key={label}>
-                <p
-                  className="text-xs font-semibold uppercase mb-2"
-                  style={{
-                    color: "var(--color-accent)",
-                    letterSpacing: "0.8px",
-                  }}
-                >
-                  {label}
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {items.map((item) => (
-                    <span
-                      key={item}
-                      className="px-2.5 py-1 text-xs"
-                      style={{
-                        backgroundColor: "var(--color-bg-elevated)",
-                        color: "var(--color-text-bright)",
-                        borderRadius: "var(--radius-full-pill)",
-                      }}
-                    >
-                      {item}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ))}
+          <section
+            aria-labelledby="metadata-heading"
+            className="panel enter-item"
+            style={enterStyle(2)}
+          >
+            <div className="flex items-baseline justify-between gap-3 mb-5">
+              <h2 id="metadata-heading" className="text-xs font-bold uppercase" style={SECTION_LABEL_STYLE}>
+                AI-Generated Metadata
+              </h2>
+              <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
+                Select a tag to search
+              </p>
+            </div>
+            <TagGroups groups={tagGroups} linkToSearch />
+          </section>
+
+          <section
+            aria-labelledby="semantic-heading"
+            className="panel enter-item"
+            style={enterStyle(3)}
+          >
+            <details className="disclosure">
+              <summary className="flex items-center justify-between gap-3 min-h-11 -my-2 cursor-pointer list-none">
+                <span>
+                  <h2 id="semantic-heading" className="text-xs font-bold uppercase" style={SECTION_LABEL_STYLE}>
+                    Semantic Document
+                  </h2>
+                  <span className="block text-xs mt-1" style={{ color: "var(--color-text-secondary)" }}>
+                    The text this image is embedded and searched by
+                  </span>
+                </span>
+                <span className="disclosure-chevron shrink-0" style={{ color: "var(--color-text-secondary)" }}>
+                  <ChevronIcon className="w-4 h-4" strokeWidth={2.5} />
+                </span>
+              </summary>
+              <pre
+                className="mt-4 text-sm whitespace-pre-wrap wrap-anywhere leading-relaxed"
+                style={{ color: "var(--color-text-bright)" }}
+              >
+                {image.semantic_document}
+              </pre>
+            </details>
+          </section>
         </div>
-      </div>
-
-      {/* ── Semantic Document ── */}
-      <div
-        className="p-6"
-        style={{
-          backgroundColor: "var(--color-bg-surface)",
-          borderRadius: "var(--radius-comfortable)",
-        }}
-      >
-        <h2
-          className="text-xs font-bold uppercase mb-4"
-          style={{
-            color: "var(--color-text-secondary)",
-            letterSpacing: "1.4px",
-          }}
-        >
-          Semantic Document
-        </h2>
-        <pre
-          className="text-sm whitespace-pre-wrap leading-relaxed"
-          style={{ color: "var(--color-text-bright)" }}
-        >
-          {image.semantic_document}
-        </pre>
       </div>
     </div>
   );
