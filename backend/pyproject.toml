@@ -1,16 +1,12 @@
 [project]
 name = "glimpse"
 version = "0.1.0"
-description = "Semantic image search powered by Groq, Gemini Embeddings and Qdrant"
-readme = "README.md"
+description = "Semantic image search powered by OpenRouter (vision LLM + embeddings) and Qdrant"
 requires-python = ">=3.11"
 
 dependencies = [
-    # Vision
-    "groq>=1.5.0",
-
-    # Gemini Embeddings
-    "google-genai>=1.30.0",
+    # Vision + Embeddings (OpenRouter, OpenAI-compatible API)
+    "openai>=3.37.0",
 
     # Vector DB
     "qdrant-client>=1.15.1",
@@ -39,5 +35,18 @@ dependencies = [
     "python-multipart>=0.0.20",
 ]
 
+# `uv run start` starts the API server (backend/src/server.py).
+[project.scripts]
+start = "src.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# Modules live flat in src/ and use bare imports (`import config`);
+# src/__init__.py puts src/ on sys.path when imported as a package.
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
 [tool.uv]
-package = false
+package = true

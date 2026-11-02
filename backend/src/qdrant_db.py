@@ -37,6 +37,20 @@ class ImageVectorStore:
         )
 
         if exists:
+            # Vectors from a different embedding size cannot share a
+            # collection. Fail early instead of on the first upsert.
+            size = self.client.get_collection(
+                config.QDRANT_COLLECTION
+            ).config.params.vectors.size
+
+            if size != config.EMBEDDING_DIMENSIONS:
+                raise RuntimeError(
+                    f"Qdrant collection '{config.QDRANT_COLLECTION}' has "
+                    f"vector size {size}, but EMBEDDING_DIMENSIONS is "
+                    f"{config.EMBEDDING_DIMENSIONS}. Use a new "
+                    "QDRANT_COLLECTION and re-ingest."
+                )
+
             return
 
         self.client.create_collection(

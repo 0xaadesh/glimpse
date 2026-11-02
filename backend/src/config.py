@@ -13,14 +13,16 @@ load_dotenv(PROJECT_ROOT / ".env")
 # API Keys
 # =========================
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# OpenRouter serves both the vision model and the embedding model.
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-if not GROQ_API_KEY:
-    raise RuntimeError("GROQ_API_KEY is missing from .env")
+if not OPENROUTER_API_KEY:
+    raise RuntimeError("OPENROUTER_API_KEY is missing from .env")
 
-if not GEMINI_API_KEY:
-    raise RuntimeError("GEMINI_API_KEY is missing from .env")
+OPENROUTER_BASE_URL = os.getenv(
+    "OPENROUTER_BASE_URL",
+    "https://openrouter.ai/api/v1",
+)
 
 
 # =========================

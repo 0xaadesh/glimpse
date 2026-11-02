@@ -40,7 +40,7 @@ store = ImageVectorStore()
 @app.command()
 def generate(
     image: Path,
-    description: str,
+    description: str = "",
 ):
     """
     Generate metadata + semantic document.

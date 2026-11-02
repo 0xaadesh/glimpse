@@ -2,17 +2,20 @@ import base64
 import json
 from pathlib import Path
 
-from groq import BadRequestError, Groq
+from openai import BadRequestError, OpenAI
 from pydantic import ValidationError
 
 import config
 from models import RetrievalMetadata
 
 
-client = Groq(api_key=config.GROQ_API_KEY)
+client = OpenAI(
+    api_key=config.OPENROUTER_API_KEY,
+    base_url=config.OPENROUTER_BASE_URL,
+)
 
-# The vision model occasionally emits malformed JSON, which Groq rejects
-# with json_validate_failed. A fresh sample usually succeeds.
+# The vision model occasionally emits malformed JSON, which the provider
+# rejects or which fails validation. A fresh sample usually succeeds.
 MAX_ATTEMPTS = 3
 
 # Models sometimes fall into a repetition loop and stuff the title with
@@ -29,6 +32,8 @@ class VisionError(Exception):
 # Require every field in the schema sent to the model.
 RESPONSE_SCHEMA = RetrievalMetadata.model_json_schema()
 RESPONSE_SCHEMA["required"] = list(RESPONSE_SCHEMA["properties"])
+# Strict structured outputs reject schemas that allow extra keys.
+RESPONSE_SCHEMA["additionalProperties"] = False
 
 LIST_FIELDS = [
     name
@@ -130,7 +135,7 @@ def generate_metadata(
     user_description: str,
 ) -> RetrievalMetadata:
     """
-    Analyze an image using Groq Vision and return RetrievalMetadata.
+    Analyze an image using the OpenRouter vision model and return RetrievalMetadata.
     """
 
     encoded = _encode_image(image_path)
@@ -142,7 +147,7 @@ def generate_metadata(
         try:
             metadata = _request_metadata(encoded, user_description)
         except BadRequestError as err:
-            if "json_validate_failed" not in str(err):
+            if "json" not in str(err).lower():
                 raise
             last_error = err
             continue
@@ -191,7 +196,7 @@ def _request_metadata(
                         "text": f"""
 User Description:
 
-{user_description}
+{user_description.strip() or "(none provided)"}
 """,
                     },
                     {
@@ -207,11 +212,14 @@ User Description:
             "type": "json_schema",
             "json_schema": {
                 "name": "retrieval_metadata",
+                "strict": True,
                 "schema": RESPONSE_SCHEMA,
             },
         },
     )
 
     return RetrievalMetadata.model_validate(
-        json.loads(response.choices[0].message.content)
+        # Empty content (e.g. reasoning used up the output) fails as
+        # a JSONDecodeError and is retried.
+        json.loads(response.choices[0].message.content or "")
     )

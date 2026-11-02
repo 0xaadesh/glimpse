@@ -129,7 +129,7 @@ async def upload_image(file: UploadFile = File(...)):
 @app.post("/api/generate", response_model=GenerateResponse)
 async def generate(
     filename: str = Form(...),
-    description: str = Form(...),
+    description: str = Form(""),
 ):
     """
     Run vision LLM on an uploaded image to produce metadata
@@ -144,7 +144,7 @@ async def generate(
             f"Image {filename} not found. Upload it first.",
         )
 
-    # Generate metadata via Groq Vision
+    # Generate metadata via the OpenRouter vision model
     try:
         metadata = generate_metadata(image_path, description)
     except VisionError as err:
