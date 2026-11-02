@@ -1,3 +1,9 @@
+# Whole app: docker compose up -d --build
+#   Frontend  http://localhost:3000
+#   Backend   http://localhost:8000/docs
+#   Qdrant    http://localhost:6333/dashboard
+# Needs a filled-in .env at the project root (uv run setup.py).
+
 services:
   qdrant:
     image: qdrant/qdrant:latest
@@ -11,3 +17,50 @@ services:
 
     volumes:
       - ./backend/qdrant_storage:/qdrant/storage
+
+    # The image has no curl; bash's /dev/tcp checks the port is accepting.
+    healthcheck:
+      test: ["CMD", "bash", "-c", ":> /dev/tcp/127.0.0.1/6333"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build: ./backend
+    container_name: glimpse-backend
+
+    restart: unless-stopped
+
+    env_file: .env
+    environment:
+      # Inside the compose network Qdrant is reached by service name,
+      # overriding the localhost value in .env.
+      QDRANT_URL: http://qdrant:6333
+
+    ports:
+      - "8000:8000"
+
+    # Same folder the backend uses outside Docker, so data is shared.
+    volumes:
+      - ./backend/data:/app/data
+
+    # The backend connects to Qdrant at import time.
+    depends_on:
+      qdrant:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Baked into the Next.js build: where /api and /images are proxied.
+        BACKEND_URL: http://backend:8000
+    container_name: glimpse-frontend
+
+    restart: unless-stopped
+
+    ports:
+      - "3000:3000"
+
+    depends_on:
+      - backend

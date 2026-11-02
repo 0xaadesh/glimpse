@@ -98,7 +98,7 @@ sequenceDiagram
 │   └── next.config.ts       # Loads root .env, proxies /api and /images to the backend
 ├── .env.example             # Template for the shared root .env
 ├── setup.py                 # Creates .env from the template (--it prompts)
-├── docker-compose.yml       # Local Qdrant (data in backend/qdrant_storage)
+├── docker-compose.yml       # Qdrant, backend and frontend (docker compose up -d --build)
 └── README.md
 ```
 
@@ -138,22 +138,41 @@ uv run setup.py --it     # or: prompts for each value, including the API key
 
 Re-running keeps values already in `.env`. You can also copy `.env.example` to `.env` by hand. See [Environment Variables](#environment-variables).
 
-### 2. Start Qdrant
+### 2. Run Everything With Docker
 
-From the project root:
+From the project root, after step 1:
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
-### 3. Install Dependencies
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:3000 |
+| Backend API docs | http://localhost:8000/docs |
+| Qdrant dashboard | http://localhost:6333/dashboard |
+
+- The backend reads the root `.env`. Compose overrides `QDRANT_URL` to `http://qdrant:6333`, the service name inside the Docker network.
+- Images, metadata and semantic documents stay in `backend/data/`, and Qdrant data in `backend/qdrant_storage/`. Both are mounted from the host, so Docker and local runs share the same data.
+- The frontend's proxy target (`BACKEND_URL=http://backend:8000`) is fixed at build time, because Next.js serializes `next.config.ts` during `next build`. Rebuild with `--build` after changing it.
+- Stop with `docker compose down`. Logs: `docker compose logs -f backend`.
+
+To develop locally instead, follow steps 3 to 5.
+
+### 3. Start Qdrant Only
+
+```bash
+docker compose up -d qdrant
+```
+
+### 4. Install Dependencies
 
 ```bash
 cd backend && uv sync
 cd ../frontend && bun install
 ```
 
-### 4. Run
+### 5. Run Locally
 
 ```bash
 # Terminal 1: backend on http://localhost:8000

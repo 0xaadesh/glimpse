@@ -531,9 +531,9 @@ Hybrid search, payload filters, a proper evaluation set, async and batch ingesti
 
 ## Demo Checklist
 
-1. `docker compose up -d` to start Qdrant. Open `http://localhost:6333/dashboard`.
-2. `cd backend && uv run start`. Show the API docs at `http://localhost:8000/docs`.
-3. `cd frontend && bun run dev`. Open `http://localhost:3000`.
+1. `docker compose up -d --build` starts Qdrant, the backend and the frontend together. (For local development instead: `docker compose up -d qdrant`, then `cd backend && uv run start` and `cd frontend && bun run dev`.)
+2. Open the Qdrant dashboard at `http://localhost:6333/dashboard` and the API docs at `http://localhost:8000/docs`.
+3. Open the app at `http://localhost:3000`.
 4. Upload or paste an image with a description. Show the generated metadata and semantic document, then ingest.
 5. Search using words that do **not** appear in the metadata (a synonym or a mood) to prove the search is semantic, not keyword-based.
 6. Open the detail page and show the tags and semantic document.
